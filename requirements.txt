@@ -38,7 +38,8 @@ requests==2.13.0
 service-identity==18.1.0
 six==1.10.0
 sortedcontainers==2.3.0
-Twisted @ file:///C:/Users/Administrator/Downloads/Twisted-20.3.0-cp39-cp39-win_amd64.whl
+Twisted==21.2.0
+twisted-iocpsupport==1.0.1
 txaio==20.12.1
 tzlocal==2.1
 ujson==4.0.2
