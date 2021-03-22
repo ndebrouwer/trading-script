@@ -1,0 +1,207 @@
+#keep code here for storage
+for i in range(300,len(master[-1] ) ):
+    #were going to start at minute 300
+    #rule 1: dont enter a position you just exited
+    #Rule 2: in the absence of an attractive buy which has gone down 2% in time2threshold, buy the token with the lowest T2T?
+    current = ''
+    buy_in = 0
+    previous = ''
+    if current == 'USDT':
+        prospects = []
+        for j in range(len(tokens)):
+            time = tokenTimes[i]
+            if i-time < 0:
+                time = 300
+                if BigPrice[j][i]/BigPrice[j][i-time] < 1-threshold:
+                    prospects.append( (token[j], BigPrice[j][i]/BigPrice[j][i-time] ) )
+            else if BigPrice[j][i]/BigPrice[j][i-time] < 1-threshold:
+                    prospects.append( (token[j], BigPrice[j][i]/BigPrice[j][i-time] ) )
+        if prospects:
+
+        tokenTimes = []
+for i in tokens:
+    tokenTimes.append(Time2Threshold(getPastPrice1(i,beginning="4 Weeks ago, UTC",end="3 Weeks ago, UTC") ) ) 
+    print("Time to threshold for "+i+" is "+str(tokenTimes[-1])+" minutes" )
+
+
+
+
+master = []
+current = ''
+buy_in = 0
+for i in range(len(tokens)):
+    master.append(TradesToPrices(getPastPrice(tokens[i])))
+ #get the moving average of the past day for the token
+ #get the moving std dev, now check the current price w reference to moving average (below or above?) and calculate std dev
+ #adjust the profit threshold depending on std dev and frequency. ex: algo only 2% stddev avg, but 1 every hr. algorand expect profit over 
+ # 2 hrs , orughly 4%. GRT 3.5% every 2 hours. grt expected profit over 2 hours, 3.5% < algo expected profit of 4%.
+for i in range(1440,len(master[-1])):
+    if current == 'USDT':
+        primeToken = ''
+        primeDelta = 0
+        for j in master:
+            dev = statistics.pstdev(j)
+            mean = statistics.mean(j)
+            normDev = dev / mean
+            delta = master[j][i]-mean
+            relative = delta/dev
+            print("the price is "+str(master[j][i]+" which is a "+str(delta)+"change. This is a "
+            +str(relative)+" deviation from the mean of"+str(mean) )      )
+            if delta < 0:
+                
+
+            if max(a,b) == b:
+                primeToken = b
+
+
+
+
+
+
+def cycle(token,):
+    indices = []
+    prices = TradesToPrices(getPastPrice1(token,beginning="24 hours ago, UTC",end='Now, UTC') )
+    threshold = stats(token)[1]
+    avg = stats(token)[0]
+ #find average time to go up or down 2%
+ #find time to go up 2% and then ENSUINGLY go down 2%, so UP and DOWN not just up
+    for i in range(len(prices)):
+        topIndex = 0
+        bottomIndex = 0
+        for j in range(i,len(prices)):
+    
+            if (1+threshold)*prices[i] <= prices[j] and topIndex ==0 :
+                topIndex = j
+          
+            if topIndex !=0 and prices[topIndex]*(1-threshold) >= prices[j]  and bottomIndex == 0 :
+                bottomIndex = j
+          
+
+            if bottomIndex != 0 and topIndex != 0 :
+                indices.append( (i,topIndex,bottomIndex) )
+                break
+        bottomIndex = 0
+        topIndex = 0
+    
+    averageMinutes = 0
+    for i in indices:
+        averageMinutes = averageMinutes+ i[1]-i[0]
+    averageMinutes = averageMinutes/len(indices)
+    return averageMinutes
+print(cycle("ALGO"))
+
+
+
+for i in range(1440,len(master[-1]) ):
+    if current_asset == 'USDT':
+        prime = 0
+        currentPrime = 0
+        index = 0
+        for j in master:
+            
+            index += 1
+            k = i-240
+            slicedList = j[k:i] 
+            dataTuple = stats1(slicedList)
+            mean = dataTuple[0]
+            threshold = dataTuple[1]
+            timeTuple = cycle1(slicedList)
+            upTime = timeTuple[1]
+            z = ( j[i]*(1+threshold)-mean )/threshold
+            currentPrime = 1000*threshold/(upTime * z)
+            if max(currentPrime,prime) == currentPrime:
+                prime = currentPrime
+                buy_in = j[i]
+                primetoken = tokens[index]
+                primeIndex = index
+                current_asset = primetoken
+        print("The prime token was selected to be "+primetoken)
+    if current_asset != 'USDT' and master[primeIndex][i]/buy_in >= (1+threshold) :
+        gains += master[primeIndex][i]/buy_in -.001-.001-1
+        print("Sold current asset for a profit of the threshold!")
+        current_asset = 'USDT'
+
+
+
+
+
+
+    #gives a timestamp for the time however many days, hours, minutes, or seconds ago from tupleInput the user inputs
+     #if tupleInput is empty defaults to NOW
+    def when(tupleInput = (), yearday:int, hour:int, minute:int, seconds: int):
+       tupleInput = (datetime.now() ).timetuple()
+       tupleInput.tm_hour = tupleInput.tm_hour+hour
+       tupleInput.tm_min = tupleInput.tm_min + minute
+       tupleInput.tm_sec = tupleInput.tm_sec + seconds
+       return (time.mktime(tupleInput))
+    #return (str)(datetime.fromtimestamp(time.mktime(tupleInput)))
+
+
+    def filled(order_input:list)->int:
+        numberFilled = 0
+        for i in order_input:
+            if(client.get_order(i['orderId'])["status"] =='FILLED' ):
+                numberFilled = numberFilled + 1
+         #returns the number of the sell orders that were filled
+        return numberFilled    
+
+
+
+def cycle(prices, token=None):
+         #need ot make final return tuple a 4-tuple: time to increase or decrease from average
+        aboveIndices = []
+        belowIndices = []
+        dataTuple = stats(prices)
+        avg = dataTuple[0]
+        threshold = dataTuple[1]
+        rawDev = 0
+        if threshold/avg > .01:
+            rawDev = threshold
+            threshold = avg * .01
+        if token:
+            token.setMean(avg)
+            token.setDev(threshold)        
+        for i in range(len(prices)):
+            aboveIndex = 0
+            belowIndex = 0
+            baselineIndex = 0
+            if prices[i] - threshold > avg:
+                for j in range(i,len(prices)):
+                    if  threshold-.02*threshold <= prices[i]-prices[j] <= threshold+.02*threshold and aboveIndex == 0 and baselineIndex == 0:
+                        aboveIndex = i
+                        baselineIndex = j
+                        aboveIndices.append( (i,j) )
+            if prices[i]+threshold < avg :
+                for j in range(i,len(prices)):
+                    if threshold-.02*threshold <= prices[j]-prices[i] <= threshold+.02*threshold and belowIndex == 0 and baselineIndex ==0:
+                        belowIndex = i
+                        baselineIndex = j
+                        belowIndices.append( (i,j) )
+        
+        minutesToDrop = 0
+        minutesToRise = 0
+        if len(aboveIndices)==0:
+            minutesToDrop = .01
+            #apparently the coin is dropping hard rn
+        else:
+            for i in aboveIndices:
+                    minutesToDrop = minutesToDrop+ i[1]-i[0]
+            minutesToDrop = minutesToDrop/len(aboveIndices)
+        if len(belowIndices)==0:
+            minutesToRise = .01
+        else:
+            for i in belowIndices:
+                    minutesToRise = minutesToRise+ i[1]-i[0]
+            minutesToRise = minutesToRise/len(belowIndices)
+        return (minutesToDrop, minutesToRise)
+
+
+def time_to_deviate(self,token):
+            avg_time = []
+            for list in self.data[tokens.index(token)]:
+                for i in range(0,len(list)/60  -1  ):
+                    #were going to calculate time to go up 1% based on 1 hour intervals
+                    mean = statistics.mean(list[0*i,1*i] )
+                    dev = statistics.dev(list[0*i,1*i] )
+                    for price in list[0*i,1*i]:
+                        if price > mean * 1.01:

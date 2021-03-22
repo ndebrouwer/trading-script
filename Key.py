@@ -1,0 +1,6 @@
+﻿
+api_key = "R6G8r4qRbHORwrnBK7nNIQ84pkfADj3HgrUFCmMwz4Kt2eYWnpSZQbKKpzNimURO"
+api_secret = "ic9fXGIvcIdnIPPvc39DjIFip4q2A1OpLFibyWD4HJhsAJ5nHhZgS5eXwFR6Qez6"
+api_key_us = 'ZORJ1rVLpV0AllkQIPReqN6gBYnf7vgDtfJ3rh2egfMdb6tgvnqnoxJ2elipAYpR'
+api_secret_us = 'l4V6zPLFMlG69YLQQIypNJn8gqDlFFRrWLu0fRzjO4EmF4nRLTPj5VPvt3QSxzTE'
+

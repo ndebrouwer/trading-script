@@ -1,0 +1,7 @@
+#Notes
+600 hrs = 24 hrs * 25 days = 3.5 weeks
+#backtesting with z*upTime 800 to 200 hrs 2/28/21 113 prcnt
+#backtesting with upTime 800 to 200 hrs 2/28/21 121 prcnt
+#backtesting with z 800 200 hrs 2/28/21 113 prcnt
+2/28/21 1200 t0 600 hrs with z as indicator and threshold/mean unmodified for volatiltiy but still 1% sell target was 71% less than 76%
+2/28/21 1200 to 600 hrs with 
