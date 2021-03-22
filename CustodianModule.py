@@ -130,7 +130,7 @@ class Custodian:
                 z = ( float(tokens[i].getPrice())+ (self.threshold*tokens[i].getMean())-tokens[i].getMean()   )/tokens[i].getDev()
                 ripeness = z
                 tokens[i].setRipeness(ripeness)
-                if(tokens[i].getRipeness() < ripest.getRipeness()) and self.is_previous_asset() == False:
+                if(tokens[i].getRipeness() < ripest.getRipeness()) and self.is_previous_asset(tokens[i]) == False:
                     ripest = tokens[i]
             return ripest
         else:
