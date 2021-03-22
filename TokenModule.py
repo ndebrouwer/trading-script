@@ -29,6 +29,7 @@ class Token:
             self.orders = []
             self.info = self.client.get_symbol_info(symbol=self.pair())
             self.price = self.client.get_symbol_ticker(symbol=self.pair())['price']
+            print('${self.price}')
             self.stepsize = self.info["filters"][2]["stepSize"]
             self.stepSizeIndex = self.stepsize.index('1')
             self.ticksize = self.info['filters'][0]['tickSize']
