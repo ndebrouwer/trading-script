@@ -275,6 +275,7 @@ class Custodian:
                 print(str(self.tokens[i].getMean() ) )
                 self.pickleData()
     def track(self):
+        time.sleep(1)
         print("Tracking tokens")
         order = {}
         self.dataTracker()
@@ -314,7 +315,6 @@ class Custodian:
             print("Not enough funds were deposited to trigger trackign")
         end_time = time.time()
         print(end_time - start_time, "seconds")
-        print('${gains}')
 
 
 
