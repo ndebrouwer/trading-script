@@ -36,7 +36,9 @@ class Custodian:
          #get 3 days of price data per token when Custodian is instantiated
         self.previous_asset = ''
         self.market = 'bull'
+        self.mode = 'spot'
         self.last_4_tokens = []
+        self.defaultLeverage = 10
     def getGains(self):
         gains = 0
         if os.stat("gains.pickle").st_size != 0:
@@ -105,7 +107,7 @@ class Custodian:
         if current_time:
             time.sleep(10)
             self.alert('gains')
-    def previous_assets(self,token):
+    def update_previous_assets(self,token):
         if len(self.last_4_tokens) == 4:
             self.last_4_tokens.remove(self.last_4_tokens[0] )
         self.last_4_tokens.append(token)
@@ -144,6 +146,8 @@ class Custodian:
 
     def filled(self,order)->str:
         if order: return self.client.get_order(symbol=order["symbol"],orderId=order["orderId"])["status"]
+    def futures_filled(self,order):
+        return self.client.futures_get_order(symbol=order['symbol'],orderId=order['orderId'])['status']
     def changeThreshold(self,threshold):
         self.threshold = threshold
     def manualOverride(self):
@@ -179,10 +183,79 @@ class Custodian:
         print("Succesfully added to tokens list, "+self.tokens[-1].name)
     def getUSDT(self):
         return float(self.client.get_asset_balance(asset='USDT')['locked'])
+    def futures_getUSDT(self):
+        balance = self.client.futures_account_balance()
+        asset_balance = self.correct_step(float(balance['availableBalance']))
+        return asset_balance
     def selling(self,order):
         starting_balance = self.current_asset.getBalance()
         limit = self.current_asset.getPrice()
         order= self.sell(self.current_asset,self.current_asset.getBalance(),limit)
+        print('Limit type is '+str(type(limit) ))
+        print(str(limit))
+        orderCount = 1
+        counter = 0
+        gains_average = 0
+
+        while( self.filled(order) != 'FILLED' and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > 10 ):
+                time.sleep(10)
+                counter += 1
+                if counter == 10:
+                       if self.filled(order) !='FILLED':
+                            self.cancel_order(order)
+                            if float(limit)*1.01 < float(primeToken.getPrice()) :
+                                limit = self.current_asset.getPrice()
+                                order = self.sell(self.current_asset,self.current_asset.getBalance(),limit)
+                                counter = 0
+                                orderCount += 1
+                            else:
+                                return False
+        sell_price = self.current_asset.avgSellPrice(orderCount)
+        self.gains += sell_price/self.current_asset.getBuyPrice()
+        self.gains -= self.fee
+        return True
+    def changeLeverage(self,token,leverageLevel):
+        order = self.client.futures_change_leverage(symbol=token.pair(),leverage=leverageLevel)
+        return order
+    def enterLong(self,token):
+        self.changeLeverage(token,self.defaultLeverage) #make sure leverage is set at 10
+        useable_balance = self.futures_getUSDT()*(1- (1/self.defaultLeverage))
+        limit = self.token.getPrice()
+        amount =  primeToken.correct_step(float(useable_balance)/float(limit))
+        order = self.client.futures_create_order(symbol=self.current_asset.pair(),side='BUY',positionSide='LONG',type=LIMIT, 
+        quantity = amount, timeInForce='GTC',price=limit)
+        return order
+    def exitLong(self,token):
+        pass
+    def buyingFutures(self,order,primeToken):
+        #NEED TO IMPLEMENT SOME FUNCTION TO CHECK IF ALL OUR USDT IS USED UP SO WE DONT HOLD MULTIPLE TOKENS
+        starting_balance = self.futures_getUSDT()
+        order = self.enterLong(primeToken)
+        orderCount = 1
+        counter = 0
+        while self.futures_getUSDT() > starting_balance/self.defaultLeverage:
+                time.sleep(5)
+                counter += 1
+                if counter == 9:
+                       if self.futures_filled(order) !='FILLED' and self.futures_getUSDT() > starting_balance/self.defaultLeverage :
+                            self.cancel_order(order)
+                            if float(limit)*1.02 > float(primeToken.getPrice()) :
+                                limit = primeToken.getPrice()
+                                order = self.enterLong(primeToken)
+                                counter = 0
+                                orderCount += 1
+                            else:
+                                return False
+        primeToken.futures_avgBuyPrice(orderCount)
+        print(str(primeToken.futures_entry_price) )
+        self.current_asset = primeToken
+        self.gains -= self.fee
+        return True
+
+    def sellingFutures(self,order):
+        starting_balance = self.current_asset.futures_getUSDT()
+        limit = self.current_asset.getPrice()
+        order= self.client.futures_create_order(symbol=self.current_asset.pair(),side='BUY',positionSide='LONG')
         print('Limit type is '+str(type(limit) ))
         print(str(limit))
         orderCount = 1
@@ -214,7 +287,8 @@ class Custodian:
         print("step size for the pair here is"+str(primeToken.stepsize) )
         limit = primeToken.getPrice()
         quantity = primeToken.correct_step(float(starting_balance)/float(limit))
-        order= self.buy(primeToken,quantity, limit ) 
+        if self.getUSDT() > 10:
+            order= self.buy(primeToken,quantity, limit ) 
         print('Limit type is'+str(type(limit))  )
         print(limit)
         print("quantity is")
@@ -239,8 +313,6 @@ class Custodian:
         self.current_asset = primeToken
         self.gains -= self.fee
         return True
-    def executedQty(self,order):
-        return float(self.client.get_order(order['orderId'])['executedQty'])
     def pickleGains(self):
         pickling_on = open("gains.pickle",'wb')
         pickle.dump(self.gains,pickling_on)
@@ -258,6 +330,8 @@ class Custodian:
 
     def profit(self):
         return float(self.current_asset.getPrice())/self.current_asset.getBuyPrice()
+    def futures_profit(self):
+        return float(self.current_asset.markPrice)/self.current_asset.get_futures_entry_price()
     def dataTracker(self):
         if datetime.now().second == 59:
             print("iterating through data[]")
@@ -274,12 +348,40 @@ class Custodian:
                 print("7 day mean:")
                 print(str(self.tokens[i].getMean() ) )
                 self.pickleData()
-    def track(self):
-        time.sleep(1)
-        print("Tracking tokens")
+    def futures(self):
         order = {}
-        self.dataTracker()
-        start_time = time.time()
+        if self.current_asset.name  == 'USDT':
+            print("Currently holding USDT")
+            primeToken = self.rank(self.tokens)
+            print("The token the algorithm selected is "+primeToken.getName())
+            if self.buyingFutures(primeToken):
+                print("successfully bought")
+            else:
+                print('Failed to buy at current price')
+        else:
+            if self.current_asset.name != 'USDT' :
+                    print("We are holding "+str(self.current_asset.getBalance())+" in "+self.current_asset.name)
+                    while  self.profit() > 1 + self.threshold :  
+                        print("Executing order above threshold")
+                        if self.sellingFutures() :
+                            print("Sell order executed above threshold")
+                            self.previous_asset = self.current_asset
+                            self.previous_assets(self.current_asset)
+                            self.current_asset=Token('USDT')
+                            self.pickleGains()
+                            break                 
+        if self.futures_filled(order) != 'FILLED' :
+                print("order failed to execute above threshold and/or price dipped/was below profit threshold")
+        print("Our current return is "+ str( (self.futures_profit()-1)*100 )[0:6]+'%' )
+        self.current_asset.printMarkPrice()
+        self.current_asset.printFuturesEntryPrice()
+        if  self.futures_profit() < self.alert_threshold and self.current_asset.name != 'USDT':
+                 #implement intervention function right here
+                print("ALERT ALERT , WE ARE DOWN 10%, OUR BOT BRAIN EXPLODED, ALL HANDS OVERBOARD, ALERT THE PROGRAMMERS")
+        end_time = time.time()
+        print(end_time - start_time, "seconds")
+    def spot(self):
+        order = {}
         if self.current_asset.name  == 'USDT':
             print("Currently holding USDT")
              #ALGORITHM FOR BUYING GOES IN HERE
@@ -298,23 +400,25 @@ class Custodian:
                         if self.selling(order) :
                             print("Sell order executed above threshold")
                             self.previous_asset = self.current_asset
-                            self.previous_assets(self.current_asset)
+                            self.update_previous_assets(self.current_asset)
                             self.current_asset=Token('USDT')
                             self.pickleGains()
                             break                 
-        if self.filled(order)==False :
-                print("order failed to execute above threshold and/or price dipped/was below profit threshold")
         print("Our current return is "+ str( (self.profit()-1)*100 )[0:6]+'%' )
-        print("Buy in price was "+str(self.current_asset.getBuyPrice() ) )
-        print("Current price is "+str(self.current_asset.getPrice() ) )
-        print("Profit is "+str(float(self.current_asset.getPrice())/self.current_asset.getBuyPrice() ) )
+        self.current_asset.printBuyIn()
+        self.current_asset.printPrice()
         if  self.profit() < self.alert_threshold and self.current_asset.name != 'USDT':
                  #implement intervention function right here
                 print("ALERT ALERT , WE ARE DOWN 10%, OUR BOT BRAIN EXPLODED, ALL HANDS OVERBOARD, ALERT THE PROGRAMMERS")
-        if self.current_asset.name == 'CURRENT_ASSET':
-            print("Not enough funds were deposited to trigger trackign")
-        end_time = time.time()
-        print(end_time - start_time, "seconds")
+    def track(self):
+        time.sleep(1)
+        print("Tracking tokens")
+
+        self.dataTracker()
+        if self.mode == 'futures':
+            self.futures()
+        else:
+            self.spot()
 
 
 
