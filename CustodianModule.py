@@ -404,7 +404,7 @@ class Custodian:
                             self.current_asset=Token('USDT')
                             self.pickleGains()
                             break
-                if self.current_asset.name != 'USDT'                
+                if self.current_asset.name != 'USDT':                
                     self.current_asset.printBuyIn()
                     self.current_asset.printPrice()
                 print("Our current return is "+str( (self.profit()-1)*100 )[0:6]+'%' )
