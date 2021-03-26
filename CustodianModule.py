@@ -403,9 +403,10 @@ class Custodian:
                             self.update_previous_assets(self.current_asset)
                             self.current_asset=Token('USDT')
                             self.pickleGains()
-                            break                 
-                self.current_asset.printBuyIn()
-                self.current_asset.printPrice()
+                            break
+                if self.current_asset.name != 'USDT'                
+                    self.current_asset.printBuyIn()
+                    self.current_asset.printPrice()
                 print("Our current return is "+str( (self.profit()-1)*100 )[0:6]+'%' )
                 if  self.profit() < self.alert_threshold :
                         #implement intervention function right here
