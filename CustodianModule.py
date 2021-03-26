@@ -51,6 +51,8 @@ class Custodian:
             for asset in self.client.get_account()["balances"]:
                 if float(asset["free"]) >  1 or float(asset["locked"]) > 1:
                     return Token(asset["asset"])
+        else:
+            return Token('USDT')
     def log_asset_prices(self):
         if datetime.now().timetuple().tm_sec == 61:
             for token in self.tokens:
