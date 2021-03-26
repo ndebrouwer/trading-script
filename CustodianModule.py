@@ -404,11 +404,11 @@ class Custodian:
                             self.current_asset=Token('USDT')
                             self.pickleGains()
                             break
-                if self.current_asset.name != 'USDT':                
+        if self.current_asset.name != 'USDT':                
                     self.current_asset.printBuyIn()
                     self.current_asset.printPrice()
-                print("Our current return is "+str( (self.profit()-1)*100 )[0:6]+'%' )
-                if  self.profit() < self.alert_threshold :
+                    print("Our current return is "+str( (self.profit()-1)*100 )[0:6]+'%' )
+                    if  self.profit() < self.alert_threshold :
                         #implement intervention function right here
                         print("ALERT ALERT , WE ARE DOWN 10%, OUR BOT BRAIN EXPLODED, ALL HANDS OVERBOARD, ALERT THE PROGRAMMERS")
     def track(self):
