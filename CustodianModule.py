@@ -23,11 +23,16 @@ class Custodian:
         self.switch = True
         self.tokens = tokens #token list
         #orders master list for all the currencies' buy ins, doesnt log sells
+        self.futures_min_notional = 5 #10 usdt is minimum notional value for orders
+        self.min_notional = 10
+        self.futures_account_info = self.client.futures_account()
+        self.mode = 'spot'
         self.current_asset = self.assetHeld()
         self.previous_asset = ''
         self.current_assets = []
         self.gains = self.getGains()
         self.threshold = .01
+        self.futures_threshold = .002
         self.alert_threshold = .9
         self.divisor = .5
         self.data = []
@@ -36,10 +41,9 @@ class Custodian:
          #get 3 days of price data per token when Custodian is instantiated
         self.previous_asset = ''
         self.market = 'bull'
-        self.mode = 'spot'
         self.last_4_tokens = []
         self.defaultLeverage = 10
-        self.min_notional = 10 #10 usdt is minimum notional value for orders
+       
     def getGains(self):
         gains = 0
         if os.stat("gains.pickle").st_size != 0:
@@ -48,12 +52,23 @@ class Custodian:
             pickle_off.close()
         return gains
     def assetHeld(self):
-        if self.getUSDT() < 1:
-            for asset in self.client.get_account()["balances"]:
-                if float(asset["free"]) >  1 or float(asset["locked"]) > 1:
-                    return Token(asset["asset"])
+        if self.mode == 'spot':
+            if self.getUSDT() < self.min_notional :
+                for asset in self.client.get_account()["balances"]:
+                    if float(asset["free"]) >  1 or float(asset["locked"]) > 1:
+                        return Token(asset["asset"])
+            else:
+                return Token('USDT')
         else:
-            return Token('USDT')
+            if self.futures_getUSDT() < self.futures_min_notional:
+                name = self.futures_account_info['positions']['symbol']
+                name = name[0:len(name)-3] #ends at character u in 'usdt'
+                current_asset = Token(name)
+                current_asset.isPosition = True
+                return current_asset
+            else:
+                return Token('USDT')
+                
     def log_asset_prices(self):
         if datetime.now().timetuple().tm_sec == 61:
             for token in self.tokens:
@@ -186,13 +201,14 @@ class Custodian:
         print("Succesfully added to tokens list, "+self.tokens[-1].name)
     def getUSDT(self):
         balance = self.client.get_asset_balance(asset='USDT')
-        if float(balance['locked']) > 10 : #10 usdt is min_notional for orders
+        if float(balance['locked']) > self.min_notional :
             return float(balance['locked'])
         else:
             return float(balance['free'])
     def futures_getUSDT(self):
         balance = self.client.futures_account_balance()
-        asset_balance = self.correct_step(float(balance['availableBalance']))
+        print(balance)
+        asset_balance = float(balance[0]['balance'])
         return asset_balance
     def selling(self,order):
         starting_balance = self.current_asset.getBalance()
@@ -204,8 +220,8 @@ class Custodian:
         counter = 0
         gains_average = 0
 
-        while( self.filled(order) != 'FILLED' and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > 10 ):
-                time.sleep(10)
+        while( self.filled(order) != 'FILLED' and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > self.min_notional ):
+                time.sleep(3)
                 counter += 1
                 if counter == 10:
                        if self.filled(order) !='FILLED':
@@ -227,9 +243,9 @@ class Custodian:
     def enterLong(self,token):
         self.changeLeverage(token,self.defaultLeverage) #make sure leverage is set at 10
         useable_balance = self.futures_getUSDT()*(1- (1/self.defaultLeverage))
-        limit = self.token.getPrice()
-        amount =  primeToken.correct_step(float(useable_balance)/float(limit))
-        order = self.client.futures_create_order(symbol=self.current_asset.pair(),side='BUY',positionSide='LONG',type=LIMIT, 
+        limit = token.markPrice
+        amount =  token.correct_step(float(useable_balance)/float(limit))
+        order = self.client.futures_create_order(symbol=token.pair(),side='BUY',positionSide='LONG',type='LIMIT', 
         quantity = amount, timeInForce='GTC',price=limit)
         return order
     def exitLong(self,token):
@@ -240,14 +256,14 @@ class Custodian:
         order = self.enterLong(primeToken)
         orderCount = 1
         counter = 0
-        while self.futures_getUSDT() > starting_balance/self.defaultLeverage:
-                time.sleep(5)
+        while self.futures_getUSDT() > starting_balance/self.defaultLeverage and self.futures_filled(order) != 'FILLED':
+                time.sleep(3)
                 counter += 1
                 if counter == 9:
                        if self.futures_filled(order) !='FILLED' and self.futures_getUSDT() > starting_balance/self.defaultLeverage :
                             self.cancel_order(order)
-                            if float(limit)*1.02 > float(primeToken.getPrice()) :
-                                limit = primeToken.getPrice()
+                            if float(limit)*1.01 > float(primeToken.markPrice()) :
+                                limit = primeToken.markPrice
                                 order = self.enterLong(primeToken)
                                 counter = 0
                                 orderCount += 1
@@ -260,17 +276,11 @@ class Custodian:
         return True
 
     def sellingFutures(self,order):
-        starting_balance = self.current_asset.futures_getUSDT()
-        limit = self.current_asset.getPrice()
-        order= self.client.futures_create_order(symbol=self.current_asset.pair(),side='BUY',positionSide='LONG')
-        print('Limit type is '+str(type(limit) ))
-        print(str(limit))
+        order= self.exitLong(self.current_asset)
         orderCount = 1
         counter = 0
-        gains_average = 0
-
-        while( self.filled(order) != 'FILLED' and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > 10 ):
-                time.sleep(10)
+        while( self.futures_filled(order) != 'FILLED' ):
+                time.sleep(3)
                 counter += 1
                 if counter == 10:
                        if self.filled(order) !='FILLED':
@@ -361,14 +371,14 @@ class Custodian:
             print("Currently holding USDT")
             primeToken = self.rank(self.tokens)
             print("The token the algorithm selected is "+primeToken.getName())
-            if self.buyingFutures(primeToken):
+            if self.buyingFutures(order,primeToken):
                 print("successfully bought")
             else:
                 print('Failed to buy at current price')
         else:
             if self.current_asset.name != 'USDT' :
                     print("We are holding "+str(self.current_asset.getBalance())+" in "+self.current_asset.name)
-                    while  self.profit() > 1 + self.threshold :  
+                    while  self.futures_profit() > 1 + self.threshold :  
                         print("Executing order above threshold")
                         if self.sellingFutures() :
                             print("Sell order executed above threshold")
@@ -377,16 +387,12 @@ class Custodian:
                             self.current_asset=Token('USDT')
                             self.pickleGains()
                             break                 
-        if self.futures_filled(order) != 'FILLED' :
-                print("order failed to execute above threshold and/or price dipped/was below profit threshold")
         print("Our current return is "+ str( (self.futures_profit()-1)*100 )[0:6]+'%' )
         self.current_asset.printMarkPrice()
         self.current_asset.printFuturesEntryPrice()
         if  self.futures_profit() < self.alert_threshold and self.current_asset.name != 'USDT':
                  #implement intervention function right here
                 print("ALERT ALERT , WE ARE DOWN 10%, OUR BOT BRAIN EXPLODED, ALL HANDS OVERBOARD, ALERT THE PROGRAMMERS")
-        end_time = time.time()
-        print(end_time - start_time, "seconds")
     def spot(self):
         order = {}
         if self.current_asset.name  == 'USDT':

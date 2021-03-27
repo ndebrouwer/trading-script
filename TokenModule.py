@@ -50,6 +50,7 @@ class Token:
             self.min = 0
             self.futures_entry_price = 0
             self.futures_exit_price = 0
+            self.isPosition = False #is a position in a token not a token
         else: 
               self.name = name
     def correctPrice(self):
@@ -69,7 +70,7 @@ class Token:
             index = number.index('.')
             return float(number[0:index+self.stepSizeIndex-2+1] )
     def get_futures_entry_price(self):
-        if futures_entry_price == 0:
+        if self.futures_entry_price == 0:
             return float(self.client.futures_get_all_orders(symbol=self.pair(),limit=1)['price'])
         else:
             return futures_entry_price
