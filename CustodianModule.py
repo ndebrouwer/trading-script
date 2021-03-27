@@ -39,6 +39,7 @@ class Custodian:
         self.mode = 'spot'
         self.last_4_tokens = []
         self.defaultLeverage = 10
+        self.min_notional = 10 #10 usdt is minimum notional value for orders
     def getGains(self):
         gains = 0
         if os.stat("gains.pickle").st_size != 0:
@@ -184,7 +185,11 @@ class Custodian:
         tokens.append(token)
         print("Succesfully added to tokens list, "+self.tokens[-1].name)
     def getUSDT(self):
-        return float(self.client.get_asset_balance(asset='USDT')['locked'])
+        balance = self.client.get_asset_balance(asset='USDT')
+        if float(balance['locked']) > 10 : #10 usdt is min_notional for orders
+            return float(balance['locked'])
+        else:
+            return float(balance['free'])
     def futures_getUSDT(self):
         balance = self.client.futures_account_balance()
         asset_balance = self.correct_step(float(balance['availableBalance']))
