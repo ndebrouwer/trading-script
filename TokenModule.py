@@ -71,9 +71,9 @@ class Token:
             return float(number[0:index+self.stepSizeIndex-2+1] )
     def get_futures_entry_price(self):
         if self.futures_entry_price == 0:
-            return float(self.client.futures_get_all_orders(symbol=self.pair(),limit=1)['price'])
-        else:
-            return futures_entry_price
+            self.futures_entry_price = float(self.client.futures_get_all_orders(symbol=self.pair(),limit=1)[0]['price'])
+        
+        return self.futures_entry_price
     def avgBuyPrice(self,orderCount):
         recent_trades = self.client.get_my_trades(symbol=self.pair(),limit=orderCount)
         Qty = 0
@@ -85,13 +85,14 @@ class Token:
         self.setBuyIn(buy_price)
     def futures_avgBuyPrice(self,orderCount):
         recent_futures_orders = self.client.futures_get_all_orders(symbol=self.pair(),limit=orderCount)
+        print(recent_futures_orders)
         Qty = 0
-        exit_price = 0
+        entry_price = 0
         for order in recent_futures_orders:
             Qty += float(order['executedQty'])
-            exit_price += float(order['price'])*float(order['executedQty'])
-        exit_price /= Qty
-        self.futures_exit_price = exit_price
+            entry_price += float(order['price'])*float(order['executedQty'])
+        entry_price /= Qty
+        self.futures_entry_price = entry_price
     def futures_avgSellPrice(self,orderCount):
         recent_futures_orders = self.client.futures_get_all_orders(symbol=self.pair(),limit=orderCount)
         Qty = 0
@@ -143,6 +144,8 @@ class Token:
         return self.name+'USDT'
     def get7days(self):
         return self.client.get_historical_klines(symbol=self.pair(),interval='1m',start_str='7 days ago, UTC',end_str='0 hours ago, UTC')
+    def getPastData(self,start_interval,end_interval):
+        return self.client.get_historical_klines(symbol=self.pair(),interval='1m',start_str=start_interval,end_str=end_interval)
     def getBuyPrice(self):
         if self.buy_in == 0:
             print("Custodian was paused, retrieving purchase price from exchange")
@@ -161,8 +164,9 @@ class Token:
         else:
             if balance and self.name == 'USDT': return float(balance['free'])
     def futures_getBalance(self):
-        balance = self.client.futures_account_balance()
-        return self.correct_step(float(balance['balance']))
+        if name != 'USDT':
+            position = self.client.futures_account_info()['positions'][0]
+        return self.correct_step(float(position['positionAmt'] ) )
     def futures_current_asset(self):
         return self.client.futures_account_balance()['asset']
     def getMean(self):
@@ -208,9 +212,17 @@ class Token:
     def printBuyIn(self):
         print("Buy in price was "+str(self.getBuyPrice() ) )
     def printFuturesEntryPrice(self):
-        print("Futures entry price was "+str(futures_entry_price) )
+        print("Futures entry price was "+str(self.futures_entry_price) )
     def printMarkPrice(self):
-        print("Mark price is "+markPrice)
+        print("Mark price is "+self.markPrice)
+    def printBalance(self):
+        if self.isPosition == True:
+            print("Our position size is "+str(self.futures_getBalance())+" of "+self.name)
+        else:
+            print("We are holding "+str(self.getBalance())+" in "+self.name)
+
+
+        
 
 
 
