@@ -171,8 +171,8 @@ class Custodian:
         print("Input the token of your choice")
         primeToken = Token(input(""))
         print("You selected "+primeToken.name)
-        positionType = input("Input the position type you would like (long or short")
-        orderType = input("Input the order type you would like (market or limit)")
+        positionType = input("Input the position type you would like (long or short) ")
+        orderType = input("Input the order type you would like (market or limit) ")
         return {'token':primeToken,'positionType':positionType,'orderType':orderType}
     def addToken(self):
         token = Token(input())
@@ -329,11 +329,13 @@ class FuturesCustodian(Custodian):
     def futures_getUSDT(self):
         balance = float(self.futures_account_info['assets'][0]['walletBalance'])
         if balance  > self.futures_min_notional:
-            print(balance)
+            print("Balance is "+str(balance))
             return balance
         else: 
             if len(self.futures_account_info['positions']) != 0:
                 print("We have positions currently")
+            else:
+                print("We have 0 USDT")
             return 0
     def assetHeld(self):
         if self.futures_getUSDT() < self.futures_min_notional:
@@ -372,14 +374,20 @@ class FuturesCustodian(Custodian):
         return float(self.current_asset.markPrice)/self.current_asset.get_futures_entry_price()
     def closePosition(self,token,orderType,positionType):
         if positionType == 'short':
-            self.enterLong(token,orderType)
+            order = self.enterLong(token,orderType)
+            return order
         if positionType == 'long':
-            self.enterShort(token,orderType)
+            order = self.enterShort(token,orderType)
+            return order
     def enterPosition(self,token,orderType,positionType):
-        if positionType == 'short':
-            self.enterLong(token,orderType)
         if positionType == 'long':
-            self.enterShort(token,orderType)
+            order = self.enterLong(token,orderType)
+            print("Entering long position...")
+            return order
+        if positionType == 'short':
+            order = self.enterShort(token,orderType)
+            print("Entering short position...")
+            return order
     def changeLeverage(self,token,leverageLevel):
         order = self.client.futures_change_leverage(symbol=token.pair(),leverage=leverageLevel)
         return order
@@ -388,14 +396,14 @@ class FuturesCustodian(Custodian):
             self.changeLeverage(token,self.defaultLeverage) #make sure leverage is set at 10
             useable_balance = self.futures_getUSDT()*(1- (1/self.defaultLeverage))
             limit = token.markPrice
-            amount =  token.correct_step(useable_balance/float(limit))
+            amount =  token.correct_step(self.defaultLeverage*useable_balance/float(limit))
             print(amount)
             order = self.client.futures_create_order(symbol=token.pair(),side='BUY', type='LIMIT', quantity = amount, timeInForce='GTC',price=limit)
             return order
         else:
             self.changeLeverage(token,self.defaultLeverage)
             useable_balance = self.futures_getUSDT()*(1- (1/self.defaultLeverage))
-            amount =  token.correct_step(useable_balance/float(token.markPrice))
+            amount =  token.correct_step(self.defaultLeverage*useable_balance/float(token.markPrice))
             order = self.client.futures_create_order(symbol=token.pair(),side='BUY', type='MARKET', 
             quantity = amount)
             return order
@@ -404,14 +412,15 @@ class FuturesCustodian(Custodian):
             self.changeLeverage(token,self.defaultLeverage) #make sure leverage is set at 10
             useable_balance = self.futures_getUSDT()*(1- (1/self.defaultLeverage))
             limit = token.markPrice
-            amount =  token.correct_step(useable_balance/float(token.markPrice) )
+            amount =  token.correct_step(self.defaultLeverage*useable_balance/float(token.markPrice) )
+            print("Order amount is "+str(amount))
             order = self.client.futures_create_order(symbol=token.pair(),side='SELL', type='LIMIT', 
             quantity = amount, timeInForce='GTC',price=limit)
             return order
         else:
             self.changeLeverage(token,self.defaultLeverage)
             useable_balance = self.futures_getUSDT()*(1- (1/self.defaultLeverage))
-            amount =  token.correct_step(useable_balance/float(token.markPrice) )
+            amount =  token.correct_step(self.defaultLeverage*useable_balance/float(token.markPrice) )
             order = self.client.futures_create_order(symbol=token.pair(),side='SELL', type='MARKET', 
             quantity = amount)
             return order
@@ -421,19 +430,18 @@ class FuturesCustodian(Custodian):
         orderCount = 1
         counter = 0
         limit = float(primeToken.markPrice)
-        while self.futures_filled(order) != 'FILLED':
+        while self.futures_filled(order) != 'FILLED' :
                 time.sleep(1)
                 counter += 1
                 if counter == 9:
                     print("30 seconds passed, order not filled, canceling")
-                    if self.futures_filled(order) !='FILLED':
-                            self.futures_cancel_order(order)
-                            if limit*1.01 > float(primeToken.markPrice) and self.futures_getUSDT() > self.futures_min_notional :
-                                order = self.enterPosition(primeToken,orderType,positionType)
-                                counter = 0
-                                orderCount += 1
-                            else:
-                                return False
+                    self.futures_cancel_order(order)
+                    if limit*1.01 > float(primeToken.markPrice) and self.futures_getUSDT() > self.futures_min_notional :
+                            order = self.enterPosition(primeToken,orderType,positionType)
+                            counter = 0
+                            orderCount += 1
+                    else:
+                        break
         if orderType == 'limit' :   
             primeToken.futures_avgBuyPrice(orderCount)
             print(str(primeToken.futures_entry_price) )
@@ -453,14 +461,13 @@ class FuturesCustodian(Custodian):
                 counter += 1
                 if counter == 9:
                     print("30 seconds passed, order not filled, canceling")
-                    if self.futures_filled(order) !='FILLED':
-                            self.futures_cancel_order(order)
-                            if limit*1.01 > float(primeToken.markPrice) and self.futures_getUSDT() > self.futures_min_notional :
-                                order = self.closePosition(self.current_asset,orderType,positionType)
-                                counter = 0
-                                orderCount += 1
-                            else:
-                                return False
+                    self.futures_cancel_order(order)
+                    if limit*1.01 > float(primeToken.markPrice) and self.futures_getUSDT() > self.futures_min_notional :
+                        order = self.closePosition(self.current_asset,orderType,positionType)
+                        counter = 0
+                        orderCount += 1
+                    else:
+                        break
         if orderType == 'limit' :   
             primeToken.futures_avgSellPrice(orderCount)
             print(str(primeToken.futures_exit_price) )
@@ -472,6 +479,9 @@ class FuturesCustodian(Custodian):
         return True
     def futures(self):
         order = {}
+        primeToken = Token('USDT')
+        positionType = ''
+        orderType = ''
         if self.current_asset.name  == 'USDT':
             print("Currently holding USDT")
             if self.automated:
@@ -482,7 +492,7 @@ class FuturesCustodian(Custodian):
                 positionType = choices['positionType']
                 orderType = choices['orderType']
             print("The token the algorithm selected is "+primeToken.getName())
-            if self.buyingFutures(order,primeToken,'limit',):
+            if self.buyingFutures(order,primeToken,orderType,positionType):
                 print("successfully bought")
             else:
                 print('Failed to buy at current price')
@@ -499,7 +509,7 @@ class FuturesCustodian(Custodian):
                             self.pickleGains()
                             break                 
         print("Our current return is "+ str( (self.futures_profit()-1)*100 )[0:6]+'%' )
-        print(str(self.gains_USDT))
+        print("Gains in USDT are "+str(self.gains_USDT))
         self.current_asset.printMarkPrice()
         self.current_asset.printFuturesEntryPrice()
         if  self.futures_profit() < self.alert_threshold and self.current_asset.name != 'USDT':
