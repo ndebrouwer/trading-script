@@ -72,8 +72,11 @@ class Token:
     def get_futures_entry_price(self):
         if self.futures_entry_price == 0:
             self.futures_entry_price = float(self.client.futures_get_all_orders(symbol=self.pair(),limit=1)[0]['price'])
-        
         return self.futures_entry_price
+    def get_futures_exit_price(self):
+        if self.futures_exit_price == 0:
+            self.futures_exit_price = float(self.client.futures_get_all_orders(symbol=self.pair(),limit=1)[0]['price'])
+        return self.futures_exit_price
     def avgBuyPrice(self,orderCount):
         recent_trades = self.client.get_my_trades(symbol=self.pair(),limit=orderCount)
         Qty = 0
@@ -96,13 +99,12 @@ class Token:
     def futures_avgSellPrice(self,orderCount):
         recent_futures_orders = self.client.futures_get_all_orders(symbol=self.pair(),limit=orderCount)
         Qty = 0
-        entry_price = 0
+        exit_price = 0
         for order in recent_futures_orders:
             Qty += float(order['executedQty'])
-            entry_price += float(order['price'])*float(order['executedQty'])
-        entry_price /= Qty
-        self.futures_entry_price = entry_price
-
+            exit_price += float(order['price'])*float(order['executedQty'])
+        exit_price /= Qty
+        self.futures_exit_price = exit_price
     def avgSellPrice(self,orderCount):
         recent_trades = self.client.get_my_trades(symbol=self.pair(),limit=orderCount)
         Qty = 0
