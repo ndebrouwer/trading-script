@@ -264,7 +264,8 @@ class Custodian:
     def pickleTokens(self):
         pass        
     def cancel_order(self,order):
-        self.client.cancel_order(symbol=order["symbol"],orderId=order['orderId'])    
+        if self.order_update['X'] == 'NEW' and self.order_update['i'] == order['orderId']
+            self.client.cancel_order(symbol=self.order_update['o']["s"],orderId=self.order_updater['o']['i'])    
     def profit(self):
         return float(self.current_asset.getPrice())/self.current_asset.getBuyPrice()
     def dataTracker(self):
@@ -374,7 +375,8 @@ class FuturesCustodian(Custodian):
         self.futures_account_info = self.client.futures_account()
         return self.futures_account_info['positions'][0]['positionSide']
     def futures_cancel_order(self,order):
-        self.client.futures_cancel_order(symbol=order["symbol"],orderId=order['orderId'])
+        if self.order_update and self.order_update['o']['i'] == order['orderId']:
+            self.client.futures_cancel_order(symbol=self.order_update["s"],orderId=self.order_updater['o']['i'])
     def dataTracker(self):
         if datetime.now().second == 59:
             print("iterating through data[]")
