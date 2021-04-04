@@ -214,7 +214,7 @@ class Custodian:
                 counter += 1
                 if counter == 10:
                     self.cancel_order(order)
-                    if float(limit)*1.01 < float(primeToken.getPrice()) and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > self.min_notional :
+                    if float(limit)*1.01 < float(self.current_asset.getPrice()) and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > self.min_notional :
                         limit = self.current_asset.getPrice()
                         order = self.sell(self.current_asset,self.current_asset.getBalance(),limit)
                         counter = 0
