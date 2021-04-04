@@ -185,28 +185,23 @@ class Custodian:
         else:
             return float(balance['free'])
     def selling(self,order):
-        starting_balance = self.current_asset.getBalance()
         limit = self.current_asset.getPrice()
         order= self.sell(self.current_asset,self.current_asset.getBalance(),limit)
-        print('Limit type is '+str(type(limit) ))
-        print(str(limit))
         orderCount = 1
         counter = 0
         gains_average = 0
-
-        while( self.filled(order) != 'FILLED' and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > self.min_notional ):
-                time.sleep(3)
+        while self.filled(order) != 'FILLED'  :
+                time.sleep(2)
                 counter += 1
                 if counter == 10:
-                       if self.filled(order) !='FILLED':
-                            self.cancel_order(order)
-                            if float(limit)*1.01 < float(primeToken.getPrice()) :
-                                limit = self.current_asset.getPrice()
-                                order = self.sell(self.current_asset,self.current_asset.getBalance(),limit)
-                                counter = 0
-                                orderCount += 1
-                            else:
-                                return False
+                    self.cancel_order(order)
+                    if float(limit)*1.01 < float(primeToken.getPrice()) and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > self.min_notional :
+                        limit = self.current_asset.getPrice()
+                        order = self.sell(self.current_asset,self.current_asset.getBalance(),limit)
+                        counter = 0
+                        orderCount += 1
+                    else:
+                        break
         sell_price = self.current_asset.avgSellPrice(orderCount)
         self.gains += sell_price/self.current_asset.getBuyPrice()
         self.gains -= self.fee
@@ -214,32 +209,25 @@ class Custodian:
     def buying(self,order,primeToken):
         #NEED TO IMPLEMENT SOME FUNCTION TO CHECK IF ALL OUR USDT IS USED UP SO WE DONT HOLD MULTIPLE TOKENS
         #MAYBE IMPLEMENT WAY TO HOLD AND CHECK MULTIPLE TOKENS
-        starting_balance = self.current_asset.getBalance()
-        print(str(starting_balance))
-        print("step size for the pair here is"+str(primeToken.stepsize) )
+        starting_balance = self.getUSDT()
         limit = primeToken.getPrice()
-        quantity = primeToken.correct_step(float(starting_balance)/float(limit))
-        if self.getUSDT() > 10:
+        quantity = primeToken.correct_step(float(self.getUSDT())/float(limit))
+        if self.getUSDT() > self.min_notional:
             order= self.buy(primeToken,quantity, limit ) 
-        print('Limit type is'+str(type(limit))  )
-        print(limit)
-        print("quantity is")
-        print(str(quantity))
         orderCount = 1
         counter = 0
-        while( self.getUSDT() > 10):
-                time.sleep(5)
+        while( self.filled(order) !='FILLED' ):
+                time.sleep(2)
                 counter += 1
                 if counter == 9:
-                       if self.filled(order) !='FILLED' and self.getUSDT() > 10 :
-                            self.cancel_order(order)
-                            if float(limit)*1.02 > float(primeToken.getPrice()) :
-                                limit = primeToken.getPrice()
-                                order = self.buy(primeToken,primeToken.correct_step(self.current_asset.getBalance()*float(limit)),limit)
-                                counter = 0
-                                orderCount += 1
-                            else:
-                                return False
+                    self.cancel_order(order)
+                    if float(limit)*1.02 > float(primeToken.getPrice()) and self.getUSDT() > self.min_notional :
+                        limit = primeToken.getPrice()
+                        order = self.buy(primeToken,primeToken.correct_step(self.current_asset.getBalance()/float(limit)),limit)
+                        counter = 0
+                        orderCount += 1
+                    else:
+                        break
         primeToken.avgBuyPrice(orderCount)
         print(str(primeToken.getBuyPrice() ) )
         self.current_asset = primeToken
@@ -351,6 +339,9 @@ class FuturesCustodian(Custodian):
         for trades in self.client.futures_account_trades(symbol=token.pair(),limit=orderCount ):
             realizedPnl += float(trades['realizedPnl'])
         return realizedPnl
+    def getPosition(self):
+        self.futures_account_info = self.client.futures_account()
+        return self.futures_account_info['positions'][0]['positionSide']
     def futures_cancel_order(self,order):
         self.client.futures_cancel_order(symbol=order["symbol"],orderId=order['orderId'])
     def dataTracker(self):
@@ -501,7 +492,7 @@ class FuturesCustodian(Custodian):
                     self.current_asset.printBalance()
                     while  self.futures_profit() > 1 + self.threshold :  
                         print("Executing order above threshold")
-                        if self.sellingFutures() :
+                        if self.sellingFutures('limit',self.getPosition()) :
                             print("Sell order executed above threshold")
                             self.previous_asset = self.current_asset
                             self.previous_assets(self.current_asset)
