@@ -14,6 +14,8 @@ from binance.client import Client
 from Key import *
 from TokenModule import Token
 import pickle
+from binance.websockets import BinanceSocketManager
+from twisted.internet import reactor
 #get and initalise binance client using api keys (this cant withdraw yet , not enabled too)
 #we can use the client to execute trades and call data, but since we already have the websocket for now we wont call data
 
@@ -28,7 +30,7 @@ class Custodian:
         self.previous_asset = ''
         self.current_assets = []
         self.gains = self.getGains()
-        self.threshold = .002
+        self.threshold = .0002
         self.alert_threshold = .9
         self.divisor = .5
         self.data = []
@@ -40,6 +42,22 @@ class Custodian:
         self.last_4_tokens = []
         self.automated = False
         self.gains_USDT = 0
+        self.bm = BinanceSocketManager(self.client)
+        self.conn_key = self.bm.start_user_socket(self.process_message)
+        self.user_info = {}
+        self.account_update = {}
+        self.balance_update = {}
+        self.order_update = {}
+    def process_message(self,msg):
+        print(msg)
+        self.user_info = msg
+        if msg['e'] == 'executionReport':
+            self.order_update = msg
+        if msg['e'] == 'outboundAccountPosition':
+            self.account_update = msg
+        if msg['e'] == 'balanceUpdate':
+            self.balance_update = msg
+
        
     def getGains(self):
         gains = 0
@@ -68,8 +86,8 @@ class Custodian:
             for priceData in dummydata[-1]:
                 savedIndex = dummydata[-1].index(priceData)
                 self.data[-1][savedIndex] = float( (priceData[1]) ) 
-                token.setMean( statistics.mean(self.data[-1]) )
-                token.setDev(statistics.stdev(self.data[-1] ) )
+            token.setMean( statistics.mean(self.data[-1]) )
+            token.setDev(statistics.stdev(self.data[-1] ) )
         return self.data
     def CustomFillAndStripData(self,start_interval,end_interval):
         for token in self.tokens:
@@ -164,7 +182,10 @@ class Custodian:
         order = self.client.order_limit_buy( symbol=token.pair(), quantity=amount, price=limit)       
         return order   
     def filled(self,order)->str:
-        if order: return self.client.get_order(symbol=order["symbol"],orderId=order["orderId"])["status"]
+        #if order: return self.client.get_order(symbol=order["symbol"],orderId=order["orderId"])["status"]
+        if self.order_update and order['orderId'] == self.order_update['i']:
+            return self.order_update['X']
+        else: return 'FALSE'
     def changeThreshold(self,threshold):
         self.threshold = threshold
     def manualRank(self):
@@ -180,13 +201,11 @@ class Custodian:
         print("Succesfully added to tokens list, "+self.tokens[-1].name)
     def getUSDT(self):
         balance = self.client.get_asset_balance(asset='USDT')
-        if float(balance['locked']) > self.min_notional :
-            return float(balance['locked'])
-        else:
-            return float(balance['free'])
+        return float(balance['free'])
     def selling(self,order):
         limit = self.current_asset.getPrice()
         order= self.sell(self.current_asset,self.current_asset.getBalance(),limit)
+        print(order)
         orderCount = 1
         counter = 0
         gains_average = 0
@@ -206,14 +225,14 @@ class Custodian:
         self.gains += sell_price/self.current_asset.getBuyPrice()
         self.gains -= self.fee
         return True       
-    def buying(self,order,primeToken):
+    def buying(self,orderMain,primeToken):
         #NEED TO IMPLEMENT SOME FUNCTION TO CHECK IF ALL OUR USDT IS USED UP SO WE DONT HOLD MULTIPLE TOKENS
         #MAYBE IMPLEMENT WAY TO HOLD AND CHECK MULTIPLE TOKENS
+        order = orderMain
         starting_balance = self.getUSDT()
         limit = primeToken.getPrice()
         quantity = primeToken.correct_step(float(self.getUSDT())/float(limit))
-        if self.getUSDT() > self.min_notional:
-            order= self.buy(primeToken,quantity, limit ) 
+        order= self.buy(primeToken,quantity, limit )
         orderCount = 1
         counter = 0
         while( self.filled(order) !='FILLED' ):
@@ -311,9 +330,21 @@ class FuturesCustodian(Custodian):
         self.mode = 'futures'
         self.defaultLeverage = 10
         self.current_asset = self.assetHeld()
-
+        self.bm = BinanceSocketManager(self.client)
+        self.conn_key = self.bm.start_futures_socket(self.process_message)
+        self.account_update = {}
+        self.order_update = {}
+    def process_message(self,msg):
+        print(msg)
+        if msg['e'] == 'ACCOUNT_UPDATE':
+            self.account_update = msg
+        if msg['e'] == 'ORDER_TRADE_UPDATE':
+            self.order_update = msg
     def futures_filled(self,order):
-        return self.client.futures_get_order(symbol=order['symbol'],orderId=order['orderId'])['status']
+        #return self.client.futures_get_order(symbol=order['symbol'],orderId=order['orderId'])['status']
+        if self.order_update and order['orderId'] == self.order_update['o']['i']:
+            return self.order_update['o']['X']
+        else: return 'FALSE'
     def futures_getUSDT(self):
         balance = float(self.futures_account_info['assets'][0]['walletBalance'])
         if balance  > self.futures_min_notional:
