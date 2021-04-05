@@ -40,7 +40,7 @@ class Custodian:
         self.previous_asset = ''
         self.market = 'bull'
         self.last_4_tokens = []
-        self.automated = False
+        self.automated = True
         self.gains_USDT = 0
         self.bm = BinanceSocketManager(self.client)
         self.conn_key = self.bm.start_user_socket(self.process_message)
@@ -329,7 +329,8 @@ class FuturesCustodian(Custodian):
         self.futures_min_notional = 5 #10 usdt is minimum notional value for orders
         self.futures_account_info = self.client.futures_account()
         self.mode = 'futures'
-        self.defaultLeverage = 10
+        self.defaultLeverage = 2
+        self.marginRatio = 1/self.defaultLeverage
         self.current_asset = self.assetHeld()
         self.bm = BinanceSocketManager(self.client)
         self.conn_key = self.bm.start_futures_socket(self.process_message)
@@ -359,6 +360,7 @@ class FuturesCustodian(Custodian):
             return 0
     def assetHeld(self):
         if self.futures_getUSDT() < self.futures_min_notional:
+            print(name)
             name = self.futures_account_info['positions']['symbol']
             name = name[0:len(name)-3] #ends at character u in 'usdt'
             current_asset = Token(name)
@@ -420,7 +422,7 @@ class FuturesCustodian(Custodian):
             self.changeLeverage(token,self.defaultLeverage) #make sure leverage is set at 10
             useable_balance = self.futures_getUSDT()*(1- (1/self.defaultLeverage))
             limit = token.markPrice
-            amount =  token.correct_step(self.defaultLeverage*useable_balance/float(limit))
+            amount =  token.correct_step( self.defaultLeverage*(1-self.marginRatio)*useable_balance/float(limit))
             print(amount)
             order = self.client.futures_create_order(symbol=token.pair(),side='BUY', type='LIMIT', quantity = amount, timeInForce='GTC',price=limit)
             return order
@@ -436,7 +438,7 @@ class FuturesCustodian(Custodian):
             self.changeLeverage(token,self.defaultLeverage) #make sure leverage is set at 10
             useable_balance = self.futures_getUSDT()*(1- (1/self.defaultLeverage))
             limit = token.markPrice
-            amount =  token.correct_step(self.defaultLeverage*useable_balance/float(token.markPrice) )
+            amount =  token.correct_step(self.defaultLeverage*(1-self.marginRatio)*useable_balance/float(token.markPrice) )
             print("Order amount is "+str(amount))
             order = self.client.futures_create_order(symbol=token.pair(),side='SELL', type='LIMIT', 
             quantity = amount, timeInForce='GTC',price=limit)
