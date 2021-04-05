@@ -40,7 +40,7 @@ class Custodian:
         self.previous_asset = ''
         self.market = 'bull'
         self.last_4_tokens = []
-        self.automated = True
+        self.automated = False
         self.gains_USDT = 0
         self.bm = BinanceSocketManager(self.client)
         self.conn_key = self.bm.start_user_socket(self.process_message)
@@ -333,7 +333,7 @@ class FuturesCustodian(Custodian):
         self.marginRatio = 1/self.defaultLeverage
         self.current_asset = self.assetHeld()
         self.bm = BinanceSocketManager(self.client)
-        self.conn_key = self.bm.start_futures_socket(self.process_message)
+        self.conn_key = self.bm.start_futures_user_socket(self.process_message)
         self.account_update = {}
         self.order_update = {}
     def process_message(self,msg):
