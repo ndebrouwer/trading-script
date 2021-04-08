@@ -56,9 +56,7 @@ class Custodian:
         if msg['e'] == 'outboundAccountPosition':
             self.account_update = msg
         if msg['e'] == 'balanceUpdate':
-            self.balance_update = msg
-
-       
+            self.balance_update = msg     
     def getGains(self):
         gains = 0
         if os.stat("gains.pickle").st_size != 0:
@@ -227,8 +225,6 @@ class Custodian:
         self.gains -= self.fee
         return True       
     def buying(self,orderMain,primeToken):
-        #NEED TO IMPLEMENT SOME FUNCTION TO CHECK IF ALL OUR USDT IS USED UP SO WE DONT HOLD MULTIPLE TOKENS
-        #MAYBE IMPLEMENT WAY TO HOLD AND CHECK MULTIPLE TOKENS
         order = orderMain
         starting_balance = self.getUSDT()
         limit = primeToken.getPrice()
@@ -271,7 +267,6 @@ class Custodian:
         return float(self.current_asset.getPrice())/self.current_asset.getBuyPrice()
     def printProfit(self):
         print("Our current return is "+str( (self.profit()-1)*100 )[0:6]+'%' )
-
     def dataTracker(self):
         if datetime.now().second == 59:
             print("iterating through data[]")
