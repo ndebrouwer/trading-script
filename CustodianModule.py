@@ -313,6 +313,7 @@ class Custodian:
                     self.printProfit()
                     if  self.profit() < self.alert_threshold :
                         #implement intervention function right here
+                        pass
     def track(self):
         time.sleep(1)
         print("Tracking tokens")
