@@ -9,13 +9,7 @@ if __name__ == "__main__":
   tokens = []
   for i in names:
     tokens.append(Token(i) )
-  mode = 'spot'
   Custos = Custodian(tokens)
-  #mode = input("Do you want to do spot trading or futures trading? Enter spot or futures ")
-  if mode == 'futures':
-    Custos = FuturesCustodian(tokens)
-  if mode == 'spot':
-    Custos = Custodian(tokens)
   Custos.initalizeData()
   while Custos.switch:
     Custos.track()
