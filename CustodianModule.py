@@ -262,7 +262,7 @@ class Custodian:
         pass        
     def cancel_order(self,order):
         if self.order_update['X'] == 'NEW' and self.order_update['i'] == order['orderId']:
-            self.client.cancel_order(symbol=self.order_update['o']["s"],orderId=self.order_updater['o']['i'])    
+            self.client.cancel_order(symbol=self.order_update["s"],orderId=self.order_update['i'])    
     def profit(self):
         return float(self.current_asset.getPrice())/self.current_asset.getBuyPrice()
     def printProfit(self):
