@@ -1,5 +1,4 @@
 from CustodianModule import Custodian
-from CustodianModule import FuturesCustodian
 from TokenModule import Token
 
 #DOESNT TAKE XXX/USD PAIRS, ONLY XXX/USDT XXX/BTC, XXX/ETH, ETC. JUST A NOTE TO AVOID API ERROR
