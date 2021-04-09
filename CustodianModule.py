@@ -67,7 +67,7 @@ class Custodian:
     def CustodianAssetHeld(self):
         if self.getUSDT() < self.min_notional :
             for token in self.tokens:
-                if float(token.getPrice())*float(token.getBalance()) > self.min_notional:
+                if float( token.getPrice() )*float( self.client.get_asset_balance(asset=token.pair() )['free'] ) > self.min_notional:
                     return token
         else:
             return Token('USDT')             
