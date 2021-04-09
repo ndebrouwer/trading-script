@@ -142,7 +142,7 @@ class Custodian:
             time.sleep(10)
             self.alert('gains')
     def update_previous_assets(self,token):
-        if len(self.last_tokens) == len(tokens):
+        if len(self.last_tokens) == len(self.tokens):
             self.last_tokens.remove(self.last_tokens[0] )
         self.last_tokens.append(token)
     def is_previous_asset(self,token):
