@@ -66,11 +66,9 @@ class Custodian:
         return gains
     def CustodianAssetHeld(self):
         if self.getUSDT() < self.min_notional :
-            for asset in self.client.get_account()["balances"]:
-                print(asset['asset'])
-                if asset['asset'] != 'USDT':
-                    if float(self.client.get_symbol_ticker(symbol=asset['asset']+'USDT')['price'])*float(asset['free']) > self.min_notional:
-                        return Token(asset["asset"])
+            for token in tokens:
+                if float(token.getPrice())*float(token.getBalance()) > self.min_notional:
+                    return token
         else:
             return Token('USDT')             
     def log_asset_prices(self):
