@@ -66,7 +66,7 @@ class Custodian:
         return gains
     def CustodianAssetHeld(self):
         if self.getUSDT() < self.min_notional :
-            for token in tokens:
+            for token in self.tokens:
                 if float(token.getPrice())*float(token.getBalance()) > self.min_notional:
                     return token
         else:
