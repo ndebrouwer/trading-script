@@ -142,8 +142,10 @@ class Custodian:
             time.sleep(10)
             self.alert('gains')
     def update_previous_assets(self,token):
-        if len(self.last_tokens) == len(self.tokens):
-            self.last_tokens.remove(self.last_tokens[0] )
+        if len(self.last_tokens) == len(self.tokens)-3:
+            self.last_tokens.clear()
+            print(self.last_tokens)
+            print("We have cycled through the previous assets, restarting") 
         self.last_tokens.append(token)
     def is_previous_asset(self,token):
         for previous_token in self.last_tokens:
@@ -201,6 +203,9 @@ class Custodian:
             return float(balance['free'])
         else:
             return 0
+    def BalanceViaSocket(self,token):
+        if self.account_update:
+            return self.account_update['B'][2]['f']
     def selling(self,order):
         limit = self.current_asset.getPrice()
         order= self.sell(self.current_asset,self.current_asset.getBalance(),limit)
@@ -211,7 +216,7 @@ class Custodian:
         while self.filled(order) != 'FILLED'  :
                 time.sleep(2)
                 counter += 1
-                if counter == 10:
+                if counter == 30:
                     self.cancel_order(order)
                     if float(limit)*1.01 < float(self.current_asset.getPrice()) and self.current_asset.getBalance()*float(self.current_asset.getPrice()) > self.min_notional :
                         limit = self.current_asset.getPrice()
@@ -219,7 +224,10 @@ class Custodian:
                         counter = 0
                         orderCount += 1
                     else:
-                        break
+                        if self.current_asset.getBalance()*float(self.current_asset.getPrice()) < self.min_notional:
+                            break
+                        if float(limit)*1.01 < float(self.current_asset.getPrice()):
+                            return False
         sell_price = self.current_asset.avgSellPrice(orderCount)
         self.gains += sell_price/self.current_asset.getBuyPrice()
         self.gains -= self.fee
@@ -235,15 +243,18 @@ class Custodian:
         while( self.filled(order) !='FILLED' ):
                 time.sleep(2)
                 counter += 1
-                if counter == 9:
+                if counter == 30:
                     self.cancel_order(order)
-                    if float(limit)*1.02 > float(primeToken.getPrice()) and self.getUSDT() > self.min_notional :
+                    if float(limit)*1.01 > float(primeToken.getPrice()) and self.getUSDT() > self.min_notional :
                         limit = primeToken.getPrice()
                         order = self.buy(primeToken,primeToken.correct_step(self.current_asset.getBalance()/float(limit)),limit)
                         counter = 0
                         orderCount += 1
                     else:
-                        break
+                        if self.getUSDT() < self.min_notional and float(self.account_update['B'][1]['f']) < self.min_notional:
+                            break
+                        if float(limit)*1.01 > float(primeToken.getPrice()):
+                            return False
         primeToken.avgBuyPrice(orderCount)
         print(str(primeToken.getBuyPrice() ) )
         self.current_asset = primeToken
