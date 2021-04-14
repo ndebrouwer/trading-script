@@ -142,7 +142,7 @@ class Custodian:
             time.sleep(10)
             self.alert('gains')
     def update_previous_assets(self,token):
-        if len(self.last_tokens) == len(self.tokens)-3:
+        if len(self.last_tokens) == len(self.tokens)-1:
             self.last_tokens.clear()
             print(self.last_tokens)
             print("We have cycled through the previous assets, restarting") 
