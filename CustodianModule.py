@@ -30,7 +30,7 @@ class Custodian:
         self.previous_asset = ''
         self.current_assets = []
         self.gains = self.getGains()
-        self.threshold = .0002
+        self.threshold = .01
         self.alert_threshold = .9
         self.divisor = .5
         self.data = []
