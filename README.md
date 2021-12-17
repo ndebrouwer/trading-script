@@ -1,1 +1,1 @@
-# Glory-of-Hercules
+# trading bot
